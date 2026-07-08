@@ -14,6 +14,19 @@
       "allowedRoles": ["editor", "admin"]
     },
     {
+      "route": "/api/grafana/query",
+      "methods": ["POST"],
+      "allowedRoles": ["editor", "admin"]
+    },
+    {
+      "route": "/api/grafana/datasources",
+      "allowedRoles": ["editor", "admin"]
+    },
+    {
+      "route": "/api/grafana/*",
+      "allowedRoles": ["viewer", "editor", "admin"]
+    },
+    {
       "route": "/api/*",
       "allowedRoles": ["viewer", "editor", "admin"]
     },
@@ -23,14 +36,8 @@
     }
   ],
   "responseOverrides": {
-    "401": {
-      "statusCode": 302,
-      "redirect": "/.auth/login/aad"
-    },
-    "403": {
-      "statusCode": 302,
-      "redirect": "/unauthorized"
-    }
+    "401": { "statusCode": 302, "redirect": "/.auth/login/aad" },
+    "403": { "statusCode": 302, "redirect": "/unauthorized" }
   },
   "auth": {
     "identityProviders": {
@@ -46,8 +53,7 @@
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Content-Security-Policy": "default-src https: 'unsafe-inline'; script-src https: 'unsafe-inline' 'unsafe-eval'"
+    "X-Frame-Options": "DENY"
   },
   "navigationFallback": {
     "rewrite": "/index.html",
