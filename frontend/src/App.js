@@ -1,35 +1,39 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import Navbar from './components/Navbar';
-import Dashboard from './components/Dashboard';
-import AlertsPage from './components/AlertsPage';
-import MetricsPage from './components/MetricsPage';
-import ActivityLogPage from './components/ActivityLogPage';
-import LogsPage from './components/LogsPage';
-import AdminPage from './components/admin/AdminPage';
-import GrafanaPage from './components/grafana/GrafanaPage';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import LoginPage from './pages/LoginPage';
+import ClientDashboardPage from './pages/ClientDashboardPage';
+
+const qc = new QueryClient({
+  defaultOptions: { queries: { retry: 2, refetchOnWindowFocus: false } },
+});
+
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? children : <Navigate to="/login" replace />;
+}
+
+function AppRoutes() {
+  const { user } = useAuth();
+  return (
+    <Routes>
+      <Route path="/login"     element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/dashboard" element={<ProtectedRoute><ClientDashboardPage /></ProtectedRoute>} />
+      <Route path="*"          element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
+    </Routes>
+  );
+}
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <div className="app">
-          <Navbar />
-          <main className="main-content">
-            <Routes>
-              <Route path="/"        element={<Dashboard />} />
-              <Route path="/alerts"  element={<AlertsPage />} />
-              <Route path="/metrics" element={<MetricsPage />} />
-              <Route path="/activity"element={<ActivityLogPage />} />
-              <Route path="/grafana" element={<GrafanaPage />} />
-              <Route path="/logs"    element={<LogsPage />} />
-              <Route path="/admin"   element={<AdminPage />} />
-              <Route path="*"        element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
-        </div>
-      </BrowserRouter>
-    </AuthProvider>
+    <QueryClientProvider client={qc}>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
