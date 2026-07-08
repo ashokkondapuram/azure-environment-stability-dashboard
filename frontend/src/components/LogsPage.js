@@ -1,20 +1,32 @@
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { queryLogs } from '../services/api';
+import RoleGuard from './RoleGuard';
 
 const SAMPLE_QUERIES = [
-  { label: 'Errors last 1h', query: 'AppExceptions | where TimeGenerated > ago(1h) | summarize count() by type' },
+  { label: 'Errors last 1h',   query: 'AppExceptions | where TimeGenerated > ago(1h) | summarize count() by type' },
   { label: 'Request failures', query: 'AppRequests | where Success == false | take 50' },
-  { label: 'Slow requests', query: 'AppRequests | where DurationMs > 3000 | top 20 by DurationMs desc' },
+  { label: 'Slow requests',    query: 'AppRequests | where DurationMs > 3000 | top 20 by DurationMs desc' },
 ];
 
 export default function LogsPage() {
+  return (
+    <RoleGuard role="editor">
+      <LogsContent />
+    </RoleGuard>
+  );
+}
+
+function LogsContent() {
   const [kql, setKql] = useState(SAMPLE_QUERIES[0].query);
   const { mutate, data: results, isPending } = useMutation({ mutationFn: queryLogs });
 
   return (
     <div>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 20 }}>🔍 Monitor Logs (KQL)</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>🔍 Monitor Logs (KQL)</h1>
+      <p style={{ color: '#64748b', fontSize: 13, marginBottom: 20 }}>
+        Editor & Admin only — execute KQL queries against Log Analytics Workspace
+      </p>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         {SAMPLE_QUERIES.map(q => (
           <button key={q.label} onClick={() => setKql(q.query)}
