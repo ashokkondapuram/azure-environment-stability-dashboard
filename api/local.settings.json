@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "STORAGE_ACCOUNT_URL": "https://<your-storage>.blob.core.windows.net",
+    "LOG_ANALYTICS_WORKSPACE_ID": "<your-workspace-id>",
+    "SUBSCRIPTION_ID": "<your-subscription-id>",
+    "RESOURCE_GROUP": "<your-resource-group>"
+  }
+}
