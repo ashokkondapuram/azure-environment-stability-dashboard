@@ -1,67 +1,73 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 /**
- * Roles:
- *  admin  - full access: view all, edit config, manage users, run queries
- *  editor - view all + acknowledge alerts + run KQL queries, no user management
- *  viewer - read-only: dashboard, alerts, metrics, activity logs (no KQL, no config)
+ * JWT-based multi-tenant auth.
+ * Login rule: username = clientname, password = clientname.
+ * The JWT payload includes: clientId, username, displayName, role, projectName, resourceGroups.
  */
-
 const AuthContext = createContext(null);
 
-export const ROLES = {
-  ADMIN: 'admin',
-  EDITOR: 'editor',
-  VIEWER: 'viewer',
-};
+export const ROLES = { ADMIN: 'admin', EDITOR: 'editor', VIEWER: 'viewer' };
+const ROLE_LEVELS = { viewer: 1, editor: 2, admin: 3 };
 
-// Role hierarchy: higher index = more permissions
-const ROLE_LEVEL = { viewer: 1, editor: 2, admin: 3 };
+function decodeToken(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch { return null; }
+}
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user,    setUser]    = useState(null);
+  const [token,   setToken]   = useState(() => localStorage.getItem('auth_token'));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch user info from Azure Static Web Apps /.auth/me
-    fetch('/.auth/me')
-      .then(r => r.json())
-      .then(data => {
-        const clientPrincipal = data?.clientPrincipal;
-        if (clientPrincipal) {
-          // Azure SWA returns userRoles array from staticwebapp.config.json role assignments
-          const roles = clientPrincipal.userRoles || [];
-          const role = roles.includes(ROLES.ADMIN)
-            ? ROLES.ADMIN
-            : roles.includes(ROLES.EDITOR)
-            ? ROLES.EDITOR
-            : ROLES.VIEWER;
-          setUser({
-            id: clientPrincipal.userId,
-            name: clientPrincipal.userDetails,
-            identityProvider: clientPrincipal.identityProvider,
-            role,
-            rawRoles: roles,
-          });
-        } else {
-          setUser(null);
-        }
-      })
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
-  }, []);
+    if (token) {
+      const decoded = decodeToken(token);
+      if (decoded && decoded.exp * 1000 > Date.now()) {
+        setUser(decoded);
+      } else {
+        localStorage.removeItem('auth_token');
+        setToken(null);
+      }
+    }
+    setLoading(false);
+  }, [token]);
 
-  const hasRole = (requiredRole) => {
+  async function login(username, password) {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username.trim(), password: password.trim() }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Login failed');
+    }
+    const { token: newToken } = await res.json();
+    localStorage.setItem('auth_token', newToken);
+    setToken(newToken);
+    setUser(decodeToken(newToken));
+  }
+
+  function logout() {
+    localStorage.removeItem('auth_token');
+    setToken(null);
+    setUser(null);
+  }
+
+  function hasRole(minRole) {
     if (!user) return false;
-    return ROLE_LEVEL[user.role] >= ROLE_LEVEL[requiredRole];
-  };
+    return (ROLE_LEVELS[user.role] || 0) >= (ROLE_LEVELS[minRole] || 0);
+  }
 
-  const isAdmin = () => hasRole(ROLES.ADMIN);
-  const isEditor = () => hasRole(ROLES.EDITOR);
-  const isViewer = () => hasRole(ROLES.VIEWER);
+  const isAdmin  = () => hasRole('admin');
+  const isEditor = () => hasRole('editor');
+  const isViewer = () => !!user;
+  const authHeader = () => token ? { Authorization: `Bearer ${token}` } : {};
 
   return (
-    <AuthContext.Provider value={{ user, loading, hasRole, isAdmin, isEditor, isViewer }}>
+    <AuthContext.Provider value={{ user, token, login, logout, hasRole, isAdmin, isEditor, isViewer, authHeader, loading }}>
       {children}
     </AuthContext.Provider>
   );
